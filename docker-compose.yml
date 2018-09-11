@@ -1,0 +1,31 @@
+version: "3.1"
+
+services:
+  go:
+    image: golang:1.10.4
+    build:
+      ./docker
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_USERNAME: gopher
+      DB_PASSWORD: gopher
+    links:
+      - db
+    networks:
+      - go-network
+    volumes:
+      - .:/go/src/parser
+
+  db:
+    image: mongo:4.1.2
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: gopher
+      MONGO_INITDB_ROOT_PASSWORD: gopher
+      MONGO_INITDB_DATABASE: goparser
+    ports:
+      - 27017:27017
+
+networks:
+  go-network:

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	//"github.com/mongodb/mongo-go-driver/mongo"
 	"github.com/PuerkitoBio/goquery"
 )
 
@@ -27,13 +28,15 @@ type Location struct {
 }
 
 type Announcement struct {
-	date time.Time
-	title, content string
-	location Location
+	date     time.Time `json:"date" bson:"date"`
+	title    string    `json:"title" bson:"string"`
+	content  string    `json:"content" bson:"string"`
+	//location Location  `json:"location"`
 }
 
 func (a Announcement) String() string {
-	return fmt.Sprintf("Date: %v\nTitle: %v\nLocation: %v\n", a.date.Format(time.RFC822), a.title, a.location)
+	return fmt.Sprintf("Date: %v\nTitle: %v\n", a.date.Format(time.RFC822), a.title)
+	//return fmt.Sprintf("Date: %v\nTitle: %v\nLocation: %v\n", a.date.Format(time.RFC822), a.title, a.location)
 }
 
 func init() {
@@ -43,6 +46,13 @@ func init() {
 	if _, err := os.Stat(CACHE_DIR); os.IsNotExist(err) {
 		os.MkdirAll(CACHE_DIR, os.ModeDir)
 	}
+
+	envList := []string{"DB_HOST", "DB_USERNAME", "DB_PASSWORD"}
+	for _, name := range envList {
+		if _, exist := os.LookupEnv(name); !exist {
+			panic(fmt.Sprintf("Environment variable %s must be present", name))
+		}
+	}
 }
 
 func main() {
@@ -51,7 +61,7 @@ func main() {
 	var processedCount uint
 	currentUrl := "/real-estate/rent/"
 	for processedCount < adsLimit {
-		content, err := getPage(DOMAIN + currentUrl, useCache)
+		content, err := getPage(DOMAIN+currentUrl, useCache)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return
@@ -62,7 +72,7 @@ func main() {
 			return
 		}
 
-		doc.Find(".listing .listing__item").EachWithBreak(func (index int, item *goquery.Selection) bool {
+		doc.Find(".listing .listing__item").EachWithBreak(func(index int, item *goquery.Selection) bool {
 			if validateAdItem(item) {
 				processAdItem(item, useCache)
 				processedCount++
@@ -113,7 +123,7 @@ func getPage(uri string, useCache bool) (io.ReadCloser, error) {
 
 	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0755)
 	if nil != err {
-		fmt.Fprintln(os.Stderr, "Cannot create file " + filename)
+		fmt.Fprintln(os.Stderr, "Cannot create file "+filename)
 	} else {
 		defer file.Close()
 		io.Copy(file, response.Body)
@@ -144,8 +154,8 @@ func processAdItem(item *goquery.Selection, useCache bool) {
 	}
 	title := trim(doc.Find(".productPage__title").Text())
 	//content := trim(doc.Find(".productPage__description, .productPage__infoColumns").Text())
-	address := trim(doc.Find(".productPage__infoBlock .productPage__infoTextBold").Text())
-	loc, err := addressToLocation(address)
+	//address := trim(doc.Find(".productPage__infoBlock .productPage__infoTextBold").Text())
+	//loc, err := addressToLocation(address)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return
@@ -156,7 +166,7 @@ func processAdItem(item *goquery.Selection, useCache bool) {
 		fmt.Fprintln(os.Stderr, err)
 		return
 	}
-	announcement := Announcement{title:title/*, content: content*/, location: loc, date: date}
+	announcement := Announcement{title: title /*, content: content, location: loc*/, date: date}
 	fmt.Fprintln(os.Stderr, doc.Find(".productPage__title").Length(), announcement)
 }
 
@@ -166,7 +176,7 @@ func trim(s string) string {
 
 func addressToLocation(address string) (Location, error) {
 	// TODO - use Google Geocoder API
-	return Location{Lat:55,Lng:35}, nil
+	return Location{Lat: 55, Lng: 35}, nil
 }
 
 func createTimeFromString(date string) (time.Time, error) {
@@ -179,18 +189,18 @@ func createTimeFromString(date string) (time.Time, error) {
 
 func normalizeDate(date string) (string, error) {
 	russianMonthToEnglish := map[string]string{
-		"января":"Jan",
-		"февраля":"Feb",
-		"марта":"Mar",
-		"апреля":"Apr",
-		"мая":"May",
-		"июня":"Jun",
-		"июля":"Jul",
-		"августа":"Aug",
-		"сентября":"Sep",
-		"октября":"Oct",
-		"ноября":"Nov",
-		"декабря":"Dec",
+		"января":   "Jan",
+		"февраля":  "Feb",
+		"марта":    "Mar",
+		"апреля":   "Apr",
+		"мая":      "May",
+		"июня":     "Jun",
+		"июля":     "Jul",
+		"августа":  "Aug",
+		"сентября": "Sep",
+		"октября":  "Oct",
+		"ноября":   "Nov",
+		"декабря":  "Dec",
 	}
 	content := []byte(date)
 	todayPattern := regexp.MustCompile(`^\s*сегодня,\s+(?P<time>(?:[01][0-9]|2[0-3])\:(?:[0-5][0-9]))\s*$`)
